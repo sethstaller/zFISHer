@@ -1,0 +1,26 @@
+# Python environment folders
+.venv/
+env/
+venv/
+
+# Python stuff
+__pycache__/
+*.pyc
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Data & Images 
+*.tif
+*.tiff
+*.nd2
+*.czi
+*.npy
+*.npz
+data/*.nd2
+data/*.tif
+
+# OS stuff
+.DS_Store

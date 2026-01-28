@@ -1,0 +1,10 @@
+nd2
+SimpleITK
+numpy
+scikit-image
+napari[all]
+magicgui
+pandas
+scipy
+PyQt5
+cellpose
