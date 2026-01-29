@@ -79,9 +79,13 @@ def dapi_segmentation_widget(viewer: 'napari.viewer.Viewer', layer: 'napari.laye
     masks, centroids = segment_nuclei_3d(layer.data)
     
     # Add to viewer
-    viewer.add_labels(masks, name=f"{layer.name}_masks")
-    viewer.add_points(centroids, name=f"{layer.name}_anchors", size=10, face_color='yellow')
-    viewer.status = "Ready"
+    if centroids is not None:
+        viewer.add_points(
+            centroids, 
+            name=f"{layer.name}_centroids", 
+            size=5, 
+            face_color='orange'
+        )
     
 def launch_zfisher():
     viewer = napari.Viewer(title="zFISHer - 3D Colocalization", ndisplay=2) # Force 2D slice mode

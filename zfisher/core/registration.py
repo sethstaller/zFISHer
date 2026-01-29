@@ -1,39 +1,51 @@
 import numpy as np
+import logging
 from cellpose import models, core
 from skimage.measure import regionprops
+from skimage.transform import rescale
+
+# Set logging to see the progress bar in terminal
+logging.basicConfig(level=logging.INFO)
 
 def segment_nuclei_3d(image_data, gpu=True):
-    """
-    Runs Cellpose 3D segmentation on a single channel.
-    """
-    # 1. Properly check for GPU (especially important on Mac/Miniforge)
+    # 1. SETUP
     use_gpu = core.use_gpu() if gpu else False
-    print(f"GPU check: {use_gpu}")
-
-    # 2. Use the 'CellposeModel' class, which is more universal than the 'Cellpose' alias
-    # This specifically bypasses the naming conflict we keep hitting
     model = models.CellposeModel(gpu=use_gpu, model_type='nuclei')
 
-    print("Cellpose is starting 3D segmentation... (71 slices)")
+    # 2. SUBSAMPLE Z
+    z_step = 5
+    subsampled_data = image_data[::z_step, :, :]
     
-    # 3. Use eval()
-    # For CellposeModel, we don't need the channels list if it's already a single-channel image
-    masks, flows, styles = model.eval(
-        image_data[0:10], 
-        do_3D=True, 
-        z_axis=0,
-        diameter=100,      
-        channels=[0, 0] # Standard for single-channel DAPI
-    )
-    # 4. Extract anchors
-    props = regionprops(masks)
-    centroids = np.array([p.centroid for p in props])
-    
-    print(f"Found {len(centroids)} nuclei.")
-    return masks, centroids
+    # 3. DOWNSAMPLE X/Y
+    scale_factor = 0.25
+    small_data = rescale(
+        subsampled_data, 
+        (1, scale_factor, scale_factor), 
+        preserve_range=True, 
+        anti_aliasing=True
+    ).astype(np.float32) # Cellpose prefers float32
 
-def calculate_warp_field(fixed_points, moving_points):
-    """
-    This is where we'll eventually put the math to map R2 to R1.
-    """
-    pass
+    # 4. EVALUATE (Fixing the ValueError)
+    masks_small, flows, styles = model.eval(
+        small_data,
+        channels=[0,0],      # Grayscale DAPI
+        diameter=None,       # We already handled scaling manually
+        rescale=1.0,         # <--- CRITICAL: Prevents internal resizing
+        do_3D=False,                
+        stitch_threshold=0.5,       
+        z_axis=0,
+        batch_size=16,               
+        progress=True,
+        resample=False       # <--- CRITICAL: Prevents internal resampling
+    )
+
+    # 5. SCALE CENTROIDS
+    props = regionprops(masks_small)
+    centroids = np.array([
+        [p.centroid[0] * z_step, 
+         p.centroid[1] / scale_factor, 
+         p.centroid[2] / scale_factor] 
+        for p in props
+    ])
+    
+    return None, centroids
